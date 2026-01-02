@@ -12,6 +12,7 @@
 package dk.magnusjensen.bedfallback.data;
 
 import dk.magnusjensen.bedfallback.Constants;
+import dk.magnusjensen.bedfallback.config.ServerConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.saveddata.SavedData;
@@ -35,6 +36,16 @@ public class BedFallbackSavedData extends SavedData {
             positions.remove(bedPos);
             positions.add(bedPos);
         }
+
+        // Enforce maximum number of bed fallbacks
+        while (positions.size() > ServerConfig.MAXIMUM_BED_FALLBACKS) {
+           if (positions.iterator().hasNext()) {
+               var firstPos = positions.iterator().next();
+               Constants.LOG.debug("Removing oldest bed spawn position {} for player {} to enforce maximum of {}", firstPos, playerUUID, ServerConfig.MAXIMUM_BED_FALLBACKS);
+               positions.remove(firstPos);
+           }
+        }
+
         setDirty();
     }
 

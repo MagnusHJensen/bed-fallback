@@ -24,6 +24,8 @@ dependencies {
     modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
     implementation group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.1'
     implementation project(":common")
+
+    modImplementation "fuzs.forgeconfigapiport:forgeconfigapiport-fabric:8.0.3"
 }
 
 loom {
@@ -60,6 +62,17 @@ unifiedPublishing {
         gameLoaders = ["fabric"]
 
         mainPublication tasks.named('remapJar').flatMap { it.archiveFile } // Declares the publicated jar
+
+        relations {
+            depends {
+                modrinth = "forge-config-api-port"
+                curseforge = "forge-config-api-port"
+            }
+            depends {
+                modrinth = "fabric-api"
+                curseforge = "fabric-api"
+            }
+        }
 
 
         var cfToken = System.getenv("CURSEFORGE_TOKEN")
