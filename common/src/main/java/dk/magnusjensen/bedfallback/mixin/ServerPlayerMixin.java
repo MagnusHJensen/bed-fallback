@@ -14,11 +14,13 @@ package dk.magnusjensen.bedfallback.mixin;
 import com.mojang.authlib.GameProfile;
 import dk.magnusjensen.bedfallback.data.BedFallbackSavedData;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -33,6 +35,10 @@ public abstract class ServerPlayerMixin extends Player {
     @Shadow
     public abstract ServerLevel serverLevel();
 
+    @Shadow
+    @Final
+    public MinecraftServer server;
+
     public ServerPlayerMixin(Level level, BlockPos pos, float yRot, GameProfile gameProfile) {
         super(level, pos, yRot, gameProfile);
     }
@@ -46,7 +52,7 @@ public abstract class ServerPlayerMixin extends Player {
             }
         }
 
-        var data = this.serverLevel().getDataStorage().computeIfAbsent(BedFallbackSavedData::load, BedFallbackSavedData::new, BedFallbackSavedData.DATA_NAME);
+        var data = BedFallbackSavedData.getData(this.serverLevel());
         var lastBedPos = data.getLastBedSpawnPosition(this.getUUID());
         if (lastBedPos != null) {
             this.respawnPosition = lastBedPos;

@@ -18,21 +18,21 @@
 
 package dk.magnusjensen.bedfallback.config;
 
-import net.minecraftforge.common.ForgeConfigSpec;
-import net.minecraftforge.fml.config.ModConfig;
+
+import net.neoforged.neoforge.common.ModConfigSpec;
 
 public class ServerConfig {
-    private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
+    private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
-    private static final ForgeConfigSpec.IntValue MAXIMUM_BED_FALLBACKS_CONFIG = BUILDER
+    private static final ModConfigSpec.IntValue MAXIMUM_BED_FALLBACKS_CONFIG = BUILDER
         .comment("How many bed spawn-points is tracked per player.")
         .defineInRange("maximumBedFallbacks", 3, 2, Integer.MAX_VALUE);
 
-    public static final ForgeConfigSpec SPEC = BUILDER.build();
+    public static final ModConfigSpec SPEC = BUILDER.build();
 
     public static int MAXIMUM_BED_FALLBACKS;
 
-    public static void onModConfigEvent(ModConfig event) {
+    public static void onModConfigEvent() {
         MAXIMUM_BED_FALLBACKS = MAXIMUM_BED_FALLBACKS_CONFIG.get();
     }
 }

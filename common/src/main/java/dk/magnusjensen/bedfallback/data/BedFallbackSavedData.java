@@ -14,10 +14,12 @@ package dk.magnusjensen.bedfallback.data;
 import dk.magnusjensen.bedfallback.Constants;
 import dk.magnusjensen.bedfallback.config.ServerConfig;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
+import org.jetbrains.annotations.Nullable;
 
-import javax.annotation.Nullable;
 import java.util.*;
 
 public class BedFallbackSavedData extends SavedData {
@@ -88,7 +90,7 @@ public class BedFallbackSavedData extends SavedData {
         return new BedFallbackSavedData();
     }
 
-    public static BedFallbackSavedData load(CompoundTag compoundTag) {
+    public static BedFallbackSavedData load(CompoundTag compoundTag, HolderLookup.Provider provider) {
         var lastBedSpawnPositions = new HashMap<UUID, LinkedHashSet<BlockPos>>();
         var bedFallbackNBT = compoundTag.getCompound("bed_fallbacks");
         for (String key : bedFallbackNBT.getAllKeys()) {
@@ -114,7 +116,7 @@ public class BedFallbackSavedData extends SavedData {
     }
 
     @Override
-    public CompoundTag save(CompoundTag compoundTag) {
+    public CompoundTag save(CompoundTag compoundTag, HolderLookup.Provider provider) {
         var bedFallbacks = new CompoundTag();
         for (var entry : lastBedSpawnPositions.entrySet()) {
             var playerUUID = entry.getKey();
@@ -135,5 +137,9 @@ public class BedFallbackSavedData extends SavedData {
         }
         compoundTag.put("bed_fallbacks", bedFallbacks);
         return compoundTag;
+    }
+
+    public static BedFallbackSavedData getData(ServerLevel level) {
+        return level.getDataStorage().computeIfAbsent(new SavedData.Factory<>(BedFallbackSavedData::create, BedFallbackSavedData::load, null), BedFallbackSavedData.DATA_NAME);
     }
 }

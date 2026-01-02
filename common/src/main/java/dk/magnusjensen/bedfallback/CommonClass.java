@@ -34,7 +34,7 @@ public class CommonClass {
             return;
         }
 
-        var data = player.serverLevel().getDataStorage().computeIfAbsent(BedFallbackSavedData::load, BedFallbackSavedData::new, BedFallbackSavedData.DATA_NAME);
+        var data = BedFallbackSavedData.getData(player.serverLevel());
 
         var blockState = player.serverLevel().getBlockState(bedPos);
         if (!blockState.is(BlockTags.BEDS)) {
@@ -58,7 +58,7 @@ public class CommonClass {
             brokenPos = brokenPos.relative(BedBlock.getConnectedDirection(state));
         }
 
-        var data = player.serverLevel().getDataStorage().computeIfAbsent(BedFallbackSavedData::load, BedFallbackSavedData::new, BedFallbackSavedData.DATA_NAME);
+        var data = BedFallbackSavedData.getData(player.serverLevel());
 
         data.removeBedSpawnPosition(brokenPos);
     }

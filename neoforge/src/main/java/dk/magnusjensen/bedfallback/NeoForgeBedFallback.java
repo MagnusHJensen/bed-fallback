@@ -13,32 +13,32 @@ package dk.magnusjensen.bedfallback;
 
 import dk.magnusjensen.bedfallback.config.ServerConfig;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.event.entity.player.PlayerSetSpawnEvent;
-import net.minecraftforge.event.level.BlockEvent;
-import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.ModLoadingContext;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.config.ModConfig;
-import net.minecraftforge.fml.event.config.ModConfigEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.config.ModConfigEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerSetSpawnEvent;
+import net.neoforged.neoforge.event.level.BlockEvent;
+
 
 @Mod(Constants.MOD_ID)
-@Mod.EventBusSubscriber(modid = Constants.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
-public class ForgeBedFallback {
+@EventBusSubscriber(modid = Constants.MOD_ID, bus = EventBusSubscriber.Bus.GAME)
+public class NeoForgeBedFallback {
     
-    public ForgeBedFallback() {
+    public NeoForgeBedFallback(IEventBus modEventBus, ModContainer modContainer) {
     
 
         CommonClass.init();
-        IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
         modEventBus.addListener(this::onConfigUpdates);
 
-        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC);
+        modContainer.registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC);
     }
 
     private void onConfigUpdates(final ModConfigEvent event) {
-        ServerConfig.onModConfigEvent(event.getConfig());
+        ServerConfig.onModConfigEvent();
     }
 
     @SubscribeEvent

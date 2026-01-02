@@ -21,14 +21,14 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(BedBlock.class)
 public class BedBlockMixin {
 
     // We have to mixin here, as the fabric PlayerBreakBlockEvents.AFTER does not fire if the foot part is destroyed.
     @Inject(method = "playerWillDestroy", at = @At("HEAD"))
-    public void playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player, CallbackInfo ci) {
+    public void playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player, CallbackInfoReturnable<BlockState> ci) {
         if (!(player instanceof ServerPlayer serverPlayer)) {
             return;
         }

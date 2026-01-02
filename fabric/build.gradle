@@ -12,6 +12,7 @@
 plugins {
     id 'multiloader-loader'
     id 'fabric-loom'
+
     id "me.shedaniel.unified-publishing" version "0.1.+"
 }
 dependencies {
@@ -22,15 +23,14 @@ dependencies {
     }
     modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
-    implementation group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.1'
-    implementation project(":common")
 
-    modImplementation "fuzs.forgeconfigapiport:forgeconfigapiport-fabric:8.0.3"
+    modImplementation "fuzs.forgeconfigapiport:forgeconfigapiport-fabric:21.1.6"
 }
 
 loom {
-    if (project(":common").file("src/main/resources/${mod_id}.accesswidener").exists()) {
-        accessWidenerPath.set(project(":common").file("src/main/resources/${mod_id}.accesswidener"))
+    def aw = project(':common').file("src/main/resources/${mod_id}.accesswidener")
+    if (aw.exists()) {
+        accessWidenerPath.set(aw)
     }
     mixin {
         defaultRefmapName.set("${mod_id}.refmap.json")
@@ -38,15 +38,15 @@ loom {
     runs {
         client {
             client()
-            setConfigName("Fabric Client")
+            setConfigName('Fabric Client')
             ideConfigGenerated(true)
-            runDir("run")
+            runDir('runs/client')
         }
         server {
             server()
-            setConfigName("Fabric Server")
+            setConfigName('Fabric Server')
             ideConfigGenerated(true)
-            runDir("run")
+            runDir('runs/server')
         }
     }
 }
@@ -58,7 +58,7 @@ unifiedPublishing {
         version = "${mod_version}" // Optional, Inferred from project by default
         changelog = rootProject.file("CHANGELOG.md").text // Optional, in markdown format
         releaseType = "release" // Optional, use "release", "beta" or "alpha"
-        gameVersions = ["1.20.1"]
+        gameVersions = ["1.21.1"]
         gameLoaders = ["fabric"]
 
         mainPublication tasks.named('remapJar').flatMap { it.archiveFile } // Declares the publicated jar

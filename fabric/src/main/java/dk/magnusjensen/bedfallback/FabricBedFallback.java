@@ -12,11 +12,11 @@
 package dk.magnusjensen.bedfallback;
 
 import dk.magnusjensen.bedfallback.config.ServerConfig;
-import fuzs.forgeconfigapiport.api.config.v2.ForgeConfigRegistry;
-import fuzs.forgeconfigapiport.api.config.v2.ModConfigEvents;
+import fuzs.forgeconfigapiport.fabric.api.neoforge.v4.NeoForgeConfigRegistry;
+import fuzs.forgeconfigapiport.fabric.api.neoforge.v4.NeoForgeModConfigEvents;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.entity.event.v1.EntitySleepEvents;
-import net.minecraftforge.fml.config.ModConfig;
+import net.neoforged.fml.config.ModConfig;
 
 public class FabricBedFallback implements ModInitializer {
     
@@ -34,9 +34,9 @@ public class FabricBedFallback implements ModInitializer {
             return true;
         });
 
-        ForgeConfigRegistry.INSTANCE.register(Constants.MOD_ID, ModConfig.Type.SERVER, ServerConfig.SPEC);
-        ModConfigEvents.reloading(Constants.MOD_ID).register(ServerConfig::onModConfigEvent);
-        ModConfigEvents.loading(Constants.MOD_ID).register(ServerConfig::onModConfigEvent);
-        ModConfigEvents.unloading(Constants.MOD_ID).register(ServerConfig::onModConfigEvent);
+        NeoForgeConfigRegistry.INSTANCE.register(Constants.MOD_ID, ModConfig.Type.SERVER, ServerConfig.SPEC);
+        NeoForgeModConfigEvents.reloading(Constants.MOD_ID).register((config -> ServerConfig.onModConfigEvent()));
+        NeoForgeModConfigEvents.loading(Constants.MOD_ID).register((config -> ServerConfig.onModConfigEvent()));
+        NeoForgeModConfigEvents.unloading(Constants.MOD_ID).register((config) -> ServerConfig.onModConfigEvent());
     }
 }
