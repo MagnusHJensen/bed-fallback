@@ -23,4 +23,5 @@ Join my [Discord](https://discord.gg/PHu8k32M3q) for support and updates! (Just 
 
 ## Thanks to
 
+- John OpenGL for creating the logo!
 - [jaredlll08](https://github.com/jaredlll08) for creating [`Multiloader-Template`](https://github.com/jaredlll08/MultiLoader-Template)
