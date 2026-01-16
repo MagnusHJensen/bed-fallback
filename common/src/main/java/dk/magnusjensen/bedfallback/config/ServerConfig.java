@@ -27,12 +27,17 @@ public class ServerConfig {
     private static final ForgeConfigSpec.IntValue MAXIMUM_BED_FALLBACKS_CONFIG = BUILDER
         .comment("How many bed spawn-points is tracked per player.")
         .defineInRange("maximumBedFallbacks", 3, 2, Integer.MAX_VALUE);
+    private static final ForgeConfigSpec.BooleanValue NEEDS_SLEEPING_TO_SET_SPAWN_POINT_CONFIG = BUILDER
+        .comment("If true, players need to sleep in the bed to set their spawn point. If false, just interacting with the bed sets the spawn point.")
+        .define("needsSleepingToSetSpawnPoint", true);
 
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static int MAXIMUM_BED_FALLBACKS;
+    public static boolean NEEDS_SLEEPING_TO_SET_SPAWN_POINT;
 
     public static void onModConfigEvent(ModConfig event) {
         MAXIMUM_BED_FALLBACKS = MAXIMUM_BED_FALLBACKS_CONFIG.get();
+        NEEDS_SLEEPING_TO_SET_SPAWN_POINT = NEEDS_SLEEPING_TO_SET_SPAWN_POINT_CONFIG.get();
     }
 }

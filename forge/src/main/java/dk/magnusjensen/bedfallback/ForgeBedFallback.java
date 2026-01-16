@@ -50,6 +50,10 @@ public class ForgeBedFallback {
             return;
         }
 
+        if (ServerConfig.NEEDS_SLEEPING_TO_SET_SPAWN_POINT) {
+            return; // Skip this as it will be handled after waking up the player
+        }
+
         CommonClass.handlePlayerSetSpawn(serverPlayer, event.getNewSpawn());
     }
 
