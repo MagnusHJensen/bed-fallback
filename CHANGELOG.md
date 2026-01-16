@@ -1,2 +1,2 @@
-# 1.1.0 - 1.20.1
-- Added config option to customize how many bed spawn-points is stored for a player. (Default 3) 
+# 1.2.0 - 1.21.1
+- Added server config option that requires a night sleep in a bed to make it a fallback. (Default is true)  
