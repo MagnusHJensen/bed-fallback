@@ -38,14 +38,13 @@ public abstract class ServerLevelMixin {
 
     @ModifyArg(method = "wakeUpAllPlayers", at = @At(value = "INVOKE", target = "Ljava/util/List;forEach(Ljava/util/function/Consumer;)V"))
     private Consumer modifyWakeUpAllPlayersArg(Consumer<ServerPlayer> original) {
-        if (!ServerConfig.NEEDS_SLEEPING_TO_SET_SPAWN_POINT) {
-            return original; // Skip this as it will be handled in the injected method
+        if (!ServerConfig.CONFIG.needsSleepingToSetSpawnPoint) {
+            return original;
         }
 
         // We need to call original.accept before each return to ensure other logic is preserved
         // But also call it after our method is run since we rely on the sleepingPos to be set which is cleared in the original method
         return (Consumer<ServerPlayer>) serverPlayer -> {
-
             // Get current pos and blockstate
             BlockPos bedPos = serverPlayer.getSleepingPos().orElse(null);
             if (bedPos == null) {
@@ -53,7 +52,7 @@ public abstract class ServerLevelMixin {
                 return;
             }
 
-            BlockState state = serverPlayer.serverLevel().getBlockState(bedPos);
+            BlockState state = serverPlayer.level().getBlockState(bedPos);
             if (!state.is(BlockTags.BEDS)) {
                 original.accept(serverPlayer);
                 return;

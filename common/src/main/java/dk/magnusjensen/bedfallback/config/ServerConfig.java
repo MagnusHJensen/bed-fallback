@@ -19,25 +19,35 @@
 package dk.magnusjensen.bedfallback.config;
 
 
+import com.electronwill.nightconfig.core.CommentedConfig;
 import net.neoforged.neoforge.common.ModConfigSpec;
+import org.apache.commons.lang3.tuple.Pair;
 
 public class ServerConfig {
-    private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
+    public static final ServerConfig CONFIG;
+    public static final ModConfigSpec CONFIG_SPEC;
 
-    private static final ModConfigSpec.IntValue MAXIMUM_BED_FALLBACKS_CONFIG = BUILDER
-        .comment("How many bed spawn-points is tracked per player.")
-        .defineInRange("maximumBedFallbacks", 3, 2, Integer.MAX_VALUE);
-    private static final ModConfigSpec.BooleanValue NEEDS_SLEEPING_TO_SET_SPAWN_POINT_CONFIG = BUILDER
-        .comment("If true, players need to sleep in the bed to set their spawn point. If false, just interacting with the bed sets the spawn point.")
-        .define("needsSleepingToSetSpawnPoint", true);
+    public int maximumBedFallbacks;
+    public boolean needsSleepingToSetSpawnPoint;
 
-    public static final ModConfigSpec SPEC = BUILDER.build();
+    private ServerConfig(ModConfigSpec.Builder builder) {
+        builder.comment("How many bed spawn-points is tracked per player.")
+            .defineInRange("maximumBedFallbacks", 3, 2, Integer.MAX_VALUE);
 
-    public static int MAXIMUM_BED_FALLBACKS;
-    public static boolean NEEDS_SLEEPING_TO_SET_SPAWN_POINT;
+        builder.comment(
+            "If true, players need to sleep in the bed to set their spawn point. If false, just interacting with the bed sets the spawn point."
+        ).define("needsSleepingToSetSpawnPoint", true);
+    }
+    static {
+        Pair<ServerConfig, ModConfigSpec> pair =
+            new ModConfigSpec.Builder().configure(ServerConfig::new);
 
-    public static void onModConfigEvent() {
-        MAXIMUM_BED_FALLBACKS = MAXIMUM_BED_FALLBACKS_CONFIG.get();
-        NEEDS_SLEEPING_TO_SET_SPAWN_POINT = NEEDS_SLEEPING_TO_SET_SPAWN_POINT_CONFIG.get();
+        CONFIG = pair.getLeft();
+        CONFIG_SPEC = pair.getRight();
+    }
+
+    public static void onModConfigEvent(CommentedConfig config) {
+        CONFIG.maximumBedFallbacks = config.getInt("maximumBedFallbacks");
+        CONFIG.needsSleepingToSetSpawnPoint = config.get("needsSleepingToSetSpawnPoint");
     }
 }

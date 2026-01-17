@@ -24,7 +24,7 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
 
-    modImplementation "fuzs.forgeconfigapiport:forgeconfigapiport-fabric:21.1.6"
+    modImplementation "fuzs.forgeconfigapiport:forgeconfigapiport-fabric:21.11.1"
 }
 
 loom {
@@ -51,6 +51,32 @@ loom {
     }
 }
 
+// Implement mcgradleconventions loader attribute
+def loaderAttribute = Attribute.of('io.github.mcgradleconventions.loader', String)
+['apiElements', 'runtimeElements', 'sourcesElements', 'javadocElements', 'includeInternal', 'modCompileClasspath'].each { variant ->
+    configurations.named("$variant") {
+        attributes {
+            attribute(loaderAttribute, 'fabric')
+        }
+    }
+}
+sourceSets.configureEach {
+    [it.compileClasspathConfigurationName, it.runtimeClasspathConfigurationName].each { variant->
+        configurations.named("$variant") {
+            attributes {
+                attribute(loaderAttribute, 'fabric')
+            }
+        }
+    }
+}
+loom.remapConfigurations.configureEach {
+    configurations.named(it.name) {
+        attributes {
+            attribute(loaderAttribute, 'fabric')
+        }
+    }
+}
+
 unifiedPublishing {
     def mod_version = version
     project {
@@ -58,7 +84,7 @@ unifiedPublishing {
         version = "${mod_version}" // Optional, Inferred from project by default
         changelog = rootProject.file("CHANGELOG.md").text // Optional, in markdown format
         releaseType = "release" // Optional, use "release", "beta" or "alpha"
-        gameVersions = ["1.21.1"]
+        gameVersions = ["1.21.11"]
         gameLoaders = ["fabric"]
 
         mainPublication tasks.named('remapJar').flatMap { it.archiveFile } // Declares the publicated jar

@@ -25,20 +25,26 @@ import net.neoforged.neoforge.event.level.BlockEvent;
 
 
 @Mod(Constants.MOD_ID)
-@EventBusSubscriber(modid = Constants.MOD_ID, bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = Constants.MOD_ID)
 public class NeoForgeBedFallback {
     
     public NeoForgeBedFallback(IEventBus modEventBus, ModContainer modContainer) {
     
 
         CommonClass.init();
-        modEventBus.addListener(this::onConfigUpdates);
 
-        modContainer.registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC);
+
+        modContainer.registerConfig(ModConfig.Type.SERVER, ServerConfig.CONFIG_SPEC);
     }
 
-    private void onConfigUpdates(final ModConfigEvent event) {
-        ServerConfig.onModConfigEvent();
+    @SubscribeEvent
+    public static void onConfigUpdates(final ModConfigEvent.Reloading event) {
+        ServerConfig.onModConfigEvent(event.getConfig().getLoadedConfig().config());
+    }
+
+    @SubscribeEvent
+    public static void onConfigUpdatesLoading(final ModConfigEvent.Loading event) {
+        ServerConfig.onModConfigEvent(event.getConfig().getLoadedConfig().config());
     }
 
     @SubscribeEvent
@@ -50,7 +56,7 @@ public class NeoForgeBedFallback {
             return;
         }
 
-        if (ServerConfig.NEEDS_SLEEPING_TO_SET_SPAWN_POINT) {
+        if (ServerConfig.CONFIG.needsSleepingToSetSpawnPoint) {
             return; // Skip this as it will be handled after waking up the player
         }
 

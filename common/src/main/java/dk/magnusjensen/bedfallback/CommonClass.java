@@ -30,13 +30,13 @@ public class CommonClass {
     public static void handlePlayerSetSpawn(ServerPlayer player, BlockPos bedPos) {
         // Check that we are in the overworld to not cause weirdness but rather just not support other dimensions setting bed spawns
         if (player.level().dimension() != player.level().getServer().overworld().dimension()) {
-            Constants.LOG.info("Skipped setting bed spawn for player {} in dimension {}", player.getName().getString(), player.level().dimension().location());
+            Constants.LOG.info("Skipped setting bed spawn for player {} in dimension {}", player.getName().getString(), player.level().dimension().identifier());
             return;
         }
 
-        var data = BedFallbackSavedData.getData(player.serverLevel());
+        var data = BedFallbackSavedData.getData(player.level());
 
-        var blockState = player.serverLevel().getBlockState(bedPos);
+        var blockState = player.level().getBlockState(bedPos);
         if (!blockState.is(BlockTags.BEDS)) {
             return;
         }
@@ -58,7 +58,7 @@ public class CommonClass {
             brokenPos = brokenPos.relative(BedBlock.getConnectedDirection(state));
         }
 
-        var data = BedFallbackSavedData.getData(player.serverLevel());
+        var data = BedFallbackSavedData.getData(player.level());
 
         data.removeBedSpawnPosition(brokenPos);
     }

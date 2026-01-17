@@ -13,13 +13,15 @@ package dk.magnusjensen.bedfallback.mixin;
 
 import com.mojang.authlib.GameProfile;
 import dk.magnusjensen.bedfallback.data.BedFallbackSavedData;
-import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.storage.LevelData;
+import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -29,33 +31,40 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ServerPlayer.class)
 public abstract class ServerPlayerMixin extends Player {
-    @Shadow
-    private BlockPos respawnPosition;
 
-    @Shadow
-    public abstract ServerLevel serverLevel();
+
+    public ServerPlayerMixin(Level level, GameProfile gameProfile) {
+        super(level, gameProfile);
+    }
 
     @Shadow
     @Final
-    public MinecraftServer server;
+    private MinecraftServer server;
 
-    public ServerPlayerMixin(Level level, BlockPos pos, float yRot, GameProfile gameProfile) {
-        super(level, pos, yRot, gameProfile);
-    }
 
-    @Inject(method = "getRespawnPosition", at = @At("HEAD"))
-    public void getRespawnPosition(CallbackInfoReturnable<BlockPos> ci) {
-        if (this.respawnPosition != null) {
-            var state = this.level().getBlockState(this.respawnPosition);
+    @Shadow
+    public abstract ServerLevel level();
+
+    @Shadow
+    private ServerPlayer.@Nullable RespawnConfig respawnConfig;
+
+    @Inject(method = "getRespawnConfig", at = @At("HEAD"))
+    public void getRespawnPosition(CallbackInfoReturnable<ServerPlayer.RespawnConfig> ci) {
+        if (this.respawnConfig != null) {
+            var state = this.level().getBlockState(this.respawnConfig.respawnData().pos());
             if (state.is(Blocks.RESPAWN_ANCHOR)) {
                 return; // Respawn anchor is valid, do nothing
             }
         }
 
-        var data = BedFallbackSavedData.getData(this.serverLevel());
+        var data = BedFallbackSavedData.getData(this.level());
         var lastBedPos = data.getLastBedSpawnPosition(this.getUUID());
         if (lastBedPos != null) {
-            this.respawnPosition = lastBedPos;
+            this.respawnConfig = new ServerPlayer.RespawnConfig(new LevelData.RespawnData(
+                GlobalPos.of(this.server.overworld().dimension(), lastBedPos),
+                respawnConfig.respawnData().yaw(),
+                respawnConfig.respawnData().pitch()
+            ), respawnConfig.forced());
         }
     }
 }

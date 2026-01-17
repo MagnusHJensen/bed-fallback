@@ -14,10 +14,10 @@ package dk.magnusjensen.bedfallback.data;
 import dk.magnusjensen.bedfallback.Constants;
 import dk.magnusjensen.bedfallback.config.ServerConfig;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
+import net.minecraft.world.level.saveddata.SavedDataType;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -28,6 +28,17 @@ public class BedFallbackSavedData extends SavedData {
     // Map of player UUID to linked hash set of block positions of bed spawns
     // We use a hash set to get O(1) lookups and linked to preserve insertion order
     private Map<UUID, LinkedHashSet<BlockPos>> lastBedSpawnPositions = new HashMap<>();
+
+    public static final SavedDataType<BedFallbackSavedData> ID = new SavedDataType<>(
+        DATA_NAME,
+
+        BedFallbackSavedData::new,
+        CompoundTag.CODEC.xmap(
+            BedFallbackSavedData::load,
+            bedFallbackSavedData -> bedFallbackSavedData.save(new CompoundTag())
+        ),
+        null
+    );
 
     public void addBedSpawnPosition(UUID playerUUID, BlockPos bedPos) {
         Constants.LOG.debug("Adding bed spawn position {} for player {}", bedPos, playerUUID);
@@ -40,10 +51,10 @@ public class BedFallbackSavedData extends SavedData {
         }
 
         // Enforce maximum number of bed fallbacks
-        while (positions.size() > ServerConfig.MAXIMUM_BED_FALLBACKS) {
+        while (positions.size() > ServerConfig.CONFIG.maximumBedFallbacks) {
            if (positions.iterator().hasNext()) {
                var firstPos = positions.iterator().next();
-               Constants.LOG.debug("Removing oldest bed spawn position {} for player {} to enforce maximum of {}", firstPos, playerUUID, ServerConfig.MAXIMUM_BED_FALLBACKS);
+               Constants.LOG.debug("Removing oldest bed spawn position {} for player {} to enforce maximum of {}", firstPos, playerUUID, ServerConfig.CONFIG.maximumBedFallbacks);
                positions.remove(firstPos);
            }
         }
@@ -86,21 +97,17 @@ public class BedFallbackSavedData extends SavedData {
         }
     }
 
-    public static BedFallbackSavedData create() {
-        return new BedFallbackSavedData();
-    }
-
-    public static BedFallbackSavedData load(CompoundTag compoundTag, HolderLookup.Provider provider) {
+    public static BedFallbackSavedData load(CompoundTag compoundTag) {
         var lastBedSpawnPositions = new HashMap<UUID, LinkedHashSet<BlockPos>>();
-        var bedFallbackNBT = compoundTag.getCompound("bed_fallbacks");
-        for (String key : bedFallbackNBT.getAllKeys()) {
+        var bedFallbackNBT = compoundTag.getCompoundOrEmpty("bed_fallbacks");
+        for (String key : bedFallbackNBT.keySet()) {
             var playerUUID = UUID.fromString(key);
-            var positionsList = bedFallbackNBT.getCompound(key);
-            var size = positionsList.getInt("size");
+            var positionsList = bedFallbackNBT.getCompoundOrEmpty(key);
+            var size = positionsList.getIntOr("size", 0);
             var positionsSet = new LinkedHashSet<BlockPos>();
             for (int i = 0; i < size; i++) {
-                var posTag = positionsList.getCompound("" + i);
-                var pos = new BlockPos(posTag.getInt("x"), posTag.getInt("y"), posTag.getInt("z"));
+                var posTag = positionsList.getCompoundOrEmpty("" + i);
+                var pos = new BlockPos(posTag.getIntOr("x", 0), posTag.getIntOr("y", 0), posTag.getIntOr("z", 0));
                 positionsSet.add(pos);
             }
             lastBedSpawnPositions.put(playerUUID, positionsSet);
@@ -115,8 +122,7 @@ public class BedFallbackSavedData extends SavedData {
         this.lastBedSpawnPositions = lastBedSpawnPositions;
     }
 
-    @Override
-    public CompoundTag save(CompoundTag compoundTag, HolderLookup.Provider provider) {
+    public CompoundTag save(CompoundTag compoundTag) {
         var bedFallbacks = new CompoundTag();
         for (var entry : lastBedSpawnPositions.entrySet()) {
             var playerUUID = entry.getKey();
@@ -140,6 +146,6 @@ public class BedFallbackSavedData extends SavedData {
     }
 
     public static BedFallbackSavedData getData(ServerLevel level) {
-        return level.getDataStorage().computeIfAbsent(new SavedData.Factory<>(BedFallbackSavedData::create, BedFallbackSavedData::load, null), BedFallbackSavedData.DATA_NAME);
+        return level.getDataStorage().computeIfAbsent(BedFallbackSavedData.ID);
     }
 }
