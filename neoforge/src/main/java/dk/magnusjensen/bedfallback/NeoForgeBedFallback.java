@@ -60,6 +60,10 @@ public class NeoForgeBedFallback {
             return; // Skip this as it will be handled after waking up the player
         }
 
+        if (event.getNewSpawn() == null) {
+            return; // No bedpos to set
+        }
+
         CommonClass.handlePlayerSetSpawn(serverPlayer, event.getNewSpawn());
     }
 

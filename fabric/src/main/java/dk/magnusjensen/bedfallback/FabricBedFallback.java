@@ -34,6 +34,10 @@ public class FabricBedFallback implements ModInitializer {
                 return true; // Skip this as it will be handled after waking up the player
             }
 
+            if (sleepingPos == null) {
+                return true; // Skip as we don't have a bedpos to set
+            }
+
             CommonClass.handlePlayerSetSpawn(serverPlayer, sleepingPos);
             return true;
         });

@@ -1,2 +1,2 @@
-# 1.2.0 - 1.21.11
-- Ported to 1.21.11  
+# 1.2.1 - 1.21.11
+Fixed a bug where it was impossible to respawn if no spawn point was set and needsToSleepInBed = false.    
