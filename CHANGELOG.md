@@ -1,2 +1,2 @@
-# 1.2.0 - 1.21.1
-- Added server config option that requires a night sleep in a bed to make it a fallback. (Default is true)  
+# 1.2.1 - 1.21.1
+- Fixed a bug where it was impossible to respawn if no spawn point was set and needsToSleepInBed = false.  
