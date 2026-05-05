@@ -38,6 +38,9 @@ public class NeoForgeBedFallback {
     }
 
     private void onConfigUpdates(final ModConfigEvent event) {
+        if (event instanceof ModConfigEvent.Unloading) {
+            return; //Skip on unloading to prevent IllegalStateException
+        }
         ServerConfig.onModConfigEvent();
     }
 

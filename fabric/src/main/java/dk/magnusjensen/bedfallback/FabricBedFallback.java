@@ -45,6 +45,5 @@ public class FabricBedFallback implements ModInitializer {
         NeoForgeConfigRegistry.INSTANCE.register(Constants.MOD_ID, ModConfig.Type.SERVER, ServerConfig.SPEC);
         NeoForgeModConfigEvents.reloading(Constants.MOD_ID).register((config -> ServerConfig.onModConfigEvent()));
         NeoForgeModConfigEvents.loading(Constants.MOD_ID).register((config -> ServerConfig.onModConfigEvent()));
-        NeoForgeModConfigEvents.unloading(Constants.MOD_ID).register((config) -> ServerConfig.onModConfigEvent());
     }
 }
