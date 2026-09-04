@@ -13,7 +13,6 @@ package dk.magnusjensen.bedfallback.mixin;
 
 import com.mojang.authlib.GameProfile;
 import dk.magnusjensen.bedfallback.data.BedFallbackSavedData;
-import net.minecraft.core.GlobalPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -50,8 +49,9 @@ public abstract class ServerPlayerMixin extends Player {
 
     @Inject(method = "getRespawnConfig", at = @At("HEAD"))
     public void getRespawnPosition(CallbackInfoReturnable<ServerPlayer.RespawnConfig> ci) {
-        if (this.respawnConfig != null) {
-            var state = this.level().getBlockState(this.respawnConfig.respawnData().pos());
+        ServerPlayer.RespawnConfig currentConfig = this.respawnConfig;
+        if (currentConfig != null) {
+            var state = this.level().getBlockState(currentConfig.respawnData().globalPos().pos());
             if (state.is(Blocks.RESPAWN_ANCHOR)) {
                 return; // Respawn anchor is valid, do nothing
             }
@@ -59,12 +59,15 @@ public abstract class ServerPlayerMixin extends Player {
 
         var data = BedFallbackSavedData.getData(this.level());
         var lastBedPos = data.getLastBedSpawnPosition(this.getUUID());
-        if (lastBedPos != null) {
-            this.respawnConfig = new ServerPlayer.RespawnConfig(new LevelData.RespawnData(
-                GlobalPos.of(this.server.overworld().dimension(), lastBedPos),
-                respawnConfig.respawnData().yaw(),
-                respawnConfig.respawnData().pitch()
-            ), respawnConfig.forced());
+        if (lastBedPos == null) {
+            return;
         }
+
+        // A player whose respawn was cleared after a failed respawn has no config left to take the angles from.
+        LevelData.RespawnData currentRespawn = currentConfig != null ? currentConfig.respawnData() : LevelData.RespawnData.DEFAULT;
+        this.respawnConfig = new ServerPlayer.RespawnConfig(
+            LevelData.RespawnData.of(this.server.overworld().dimension(), lastBedPos, currentRespawn.yaw(), currentRespawn.pitch()),
+            currentConfig != null && currentConfig.forced()
+        );
     }
 }

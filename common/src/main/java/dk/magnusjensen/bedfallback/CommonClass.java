@@ -16,8 +16,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.BedBlock;
-import net.minecraft.world.level.block.entity.BedBlockEntity;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.properties.BedPart;
 
 public class CommonClass {
@@ -45,14 +43,14 @@ public class CommonClass {
         data.addBedSpawnPosition(player.getUUID(), bedPos);
     }
 
-    public static void handleBlockBroken(ServerPlayer player, BlockPos brokenPos, BlockEntity blockEntity) {
-        if (!(blockEntity instanceof BedBlockEntity)) {
-            // We can rely on that beds have block entities, so if it's not a bed block entity, we can just return.
+    public static void handleBlockBroken(ServerPlayer player, BlockPos brokenPos) {
+        // Beds lost their block entity in 26.2, so the block state is the only thing left to recognise one by.
+        var state = player.level().getBlockState(brokenPos);
+        if (!state.is(BlockTags.BEDS)) {
             return;
         }
 
         // Always get the head part to ensure consistency with other code pieces
-        var state = player.level().getBlockState(brokenPos);
         BedPart bedPart = state.getValue(BedBlock.PART);
         if (bedPart == BedPart.FOOT) {
             brokenPos = brokenPos.relative(BedBlock.getConnectedDirection(state));

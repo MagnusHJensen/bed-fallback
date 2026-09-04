@@ -23,10 +23,6 @@ neoForge {
     if (at.exists()) {
         accessTransformers.from(at.absolutePath)
     }
-    parchment {
-        minecraftVersion = parchment_minecraft
-        mappingsVersion = parchment_version
-    }
     runs {
         configureEach {
             systemProperty('neoforge.enabledGameTestNamespaces', mod_id)
@@ -82,7 +78,7 @@ unifiedPublishing {
         version = "${mod_version}" // Optional, Inferred from project by default
         changelog = rootProject.file("CHANGELOG.md").text // Optional, in markdown format
         releaseType = "release" // Optional, use "release", "beta" or "alpha"
-        gameVersions = ["1.21.11"]
+        gameVersions = [minecraft_version]
         gameLoaders = ["neoforge"]
 
         mainPublication tasks.named('jar', Jar).flatMap { it.archiveFile } // Declares the publicated jar
