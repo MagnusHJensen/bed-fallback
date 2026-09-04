@@ -19,6 +19,7 @@ import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
 import net.minecraft.world.level.storage.LevelResource;
@@ -77,18 +78,29 @@ public class BedFallbackSavedData extends SavedData {
         }
     }
 
+    // Walks newest to oldest and drops every position that no longer holds a bed on the way, so the newest bed that
+    // still stands is the one returned. Only a player breaking a bed reaches removeBedSpawnPosition; a creeper, a
+    // piston or lava takes one away without telling us, so the list is only known to match the world when it is read.
     @Nullable
-    public BlockPos getLastBedSpawnPosition(UUID playerUUID) {
+    public BlockPos findLastStandingBedSpawnPosition(ServerLevel level, UUID playerUUID) {
         LinkedHashSet<BlockPos> positions = lastBedSpawnPositions.get(playerUUID);
-        if (positions != null && !positions.isEmpty()) {
-            // Return the last added position
-            Iterator<BlockPos> iterator = positions.iterator();
-            BlockPos lastPos = null;
-            while (iterator.hasNext()) {
-                lastPos = iterator.next();
-            }
-            return lastPos;
+        if (positions == null) {
+            return null;
         }
+
+        // A snapshot, because dropping a position below writes to the very set this walks.
+        List<BlockPos> oldestFirst = List.copyOf(positions);
+        for (int i = oldestFirst.size() - 1; i >= 0; i--) {
+            BlockPos pos = oldestFirst.get(i);
+            if (level.getBlockState(pos).is(BlockTags.BEDS)) {
+                return pos;
+            }
+
+            Constants.LOG.debug("Dropping bed spawn position {} for player {}, no bed stands there any more", pos, playerUUID);
+            removeBedSpawnPosition(pos);
+        }
+
+        Constants.LOG.debug("No recorded bed is still standing for player {}", playerUUID);
         return null;
     }
 
@@ -97,15 +109,16 @@ public class BedFallbackSavedData extends SavedData {
         return positions != null && positions.contains(pos);
     }
 
-    public void removeBedSpawnPosition( BlockPos bedPos) {
+    public void removeBedSpawnPosition(BlockPos bedPos) {
         Constants.LOG.debug("Removing bed spawn position {}", bedPos);
-        // Loop over all players and remove the bed position if it exists
-        for (var entry : lastBedSpawnPositions.entrySet()) {
-            var playerUUID = entry.getKey();
-            var positions = entry.getValue();
+        // Loop over all players and remove the bed position if it exists. A player left with no positions drops out
+        // of the map, which has to go through the iterator: removing from the map itself here would fail the walk.
+        var entries = lastBedSpawnPositions.entrySet().iterator();
+        while (entries.hasNext()) {
+            var positions = entries.next().getValue();
             if (positions.remove(bedPos)) {
                 if (positions.isEmpty()) {
-                    lastBedSpawnPositions.remove(playerUUID);
+                    entries.remove();
                 }
                 setDirty();
             }

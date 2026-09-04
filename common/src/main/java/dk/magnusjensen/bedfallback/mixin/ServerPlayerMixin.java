@@ -58,7 +58,9 @@ public abstract class ServerPlayerMixin extends Player {
         }
 
         var data = BedFallbackSavedData.getData(this.level());
-        var lastBedPos = data.getLastBedSpawnPosition(this.getUUID());
+        // Recorded positions are overworld ones, so they have to be checked against the overworld. Checking them
+        // against whatever level the player died in would find no bed and throw away every position they have.
+        var lastBedPos = data.findLastStandingBedSpawnPosition(this.server.overworld(), this.getUUID());
         if (lastBedPos == null) {
             return;
         }
