@@ -17,6 +17,7 @@ import net.minecraft.core.GlobalPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
@@ -50,21 +51,34 @@ public abstract class ServerPlayerMixin extends Player {
 
     @Inject(method = "getRespawnConfig", at = @At("HEAD"))
     public void getRespawnPosition(CallbackInfoReturnable<ServerPlayer.RespawnConfig> ci) {
-        if (this.respawnConfig != null) {
-            var state = this.level().getBlockState(this.respawnConfig.respawnData().pos());
-            if (state.is(Blocks.RESPAWN_ANCHOR)) {
-                return; // Respawn anchor is valid, do nothing
+        ServerPlayer.RespawnConfig currentConfig = this.respawnConfig;
+        if (currentConfig != null) {
+            // The block has to be read in the dimension the respawn points at, not in the one the player died in.
+            // Respawn anchors only work in the Nether, so reading the current level would miss every one of them.
+            GlobalPos respawnPos = currentConfig.respawnData().globalPos();
+            ServerLevel respawnLevel = this.server.getLevel(respawnPos.dimension());
+            if (respawnLevel != null) {
+                var state = respawnLevel.getBlockState(respawnPos.pos());
+                // A spawn whose block is still there is not a broken one, so it stays as the game left it. That also
+                // covers a bed this mod never recorded: on a server a player can sleep without the night being
+                // skipped, and with needsSleepingToSetSpawnPoint on, only the game knows about that bed.
+                if (state.is(Blocks.RESPAWN_ANCHOR) || state.is(BlockTags.BEDS)) {
+                    return;
+                }
             }
         }
 
-        var data = BedFallbackSavedData.getData(this.level());
-        var lastBedPos = data.getLastBedSpawnPosition(this.getUUID());
-        if (lastBedPos != null) {
-            this.respawnConfig = new ServerPlayer.RespawnConfig(new LevelData.RespawnData(
-                GlobalPos.of(this.server.overworld().dimension(), lastBedPos),
-                respawnConfig.respawnData().yaw(),
-                respawnConfig.respawnData().pitch()
-            ), respawnConfig.forced());
+        var data = BedFallbackSavedData.getData(this.server);
+        var lastBedPos = data.findLastStandingBedSpawnPosition(this.server, this.getUUID());
+        if (lastBedPos == null) {
+            return;
         }
+
+        // A player whose respawn was cleared after a failed respawn has no config left to take the angles from.
+        LevelData.RespawnData currentRespawn = currentConfig != null ? currentConfig.respawnData() : LevelData.RespawnData.DEFAULT;
+        this.respawnConfig = new ServerPlayer.RespawnConfig(
+            LevelData.RespawnData.of(lastBedPos.dimension(), lastBedPos.pos(), currentRespawn.yaw(), currentRespawn.pitch()),
+            currentConfig != null && currentConfig.forced()
+        );
     }
 }
