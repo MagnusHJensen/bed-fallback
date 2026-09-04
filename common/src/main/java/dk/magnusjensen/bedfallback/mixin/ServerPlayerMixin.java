@@ -17,6 +17,7 @@ import net.minecraft.core.GlobalPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
@@ -56,8 +57,14 @@ public abstract class ServerPlayerMixin extends Player {
             // Respawn anchors only work in the Nether, so reading the current level would miss every one of them.
             GlobalPos respawnPos = currentConfig.respawnData().globalPos();
             ServerLevel respawnLevel = this.server.getLevel(respawnPos.dimension());
-            if (respawnLevel != null && respawnLevel.getBlockState(respawnPos.pos()).is(Blocks.RESPAWN_ANCHOR)) {
-                return; // Respawn anchor is valid, do nothing
+            if (respawnLevel != null) {
+                var state = respawnLevel.getBlockState(respawnPos.pos());
+                // A spawn whose block is still there is not a broken one, so it stays as the game left it. That also
+                // covers a bed this mod never recorded: on a server a player can sleep without the night being
+                // skipped, and with needsSleepingToSetSpawnPoint on, only the game knows about that bed.
+                if (state.is(Blocks.RESPAWN_ANCHOR) || state.is(BlockTags.BEDS)) {
+                    return;
+                }
             }
         }
 
