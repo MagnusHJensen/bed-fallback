@@ -14,12 +14,17 @@ package dk.magnusjensen.bedfallback.data;
 import dk.magnusjensen.bedfallback.Constants;
 import dk.magnusjensen.bedfallback.config.ServerConfig;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
 import net.minecraft.world.level.storage.LevelResource;
@@ -34,9 +39,9 @@ public class BedFallbackSavedData extends SavedData {
 
     private static final String DATA_FILE_NAME = DATA_NAME + ".dat";
 
-    // Map of player UUID to linked hash set of block positions of bed spawns
+    // Map of player UUID to linked hash set of global positions of bed spawns, across every dimension
     // We use a hash set to get O(1) lookups and linked to preserve insertion order
-    private Map<UUID, LinkedHashSet<BlockPos>> lastBedSpawnPositions = new HashMap<>();
+    private Map<UUID, LinkedHashSet<GlobalPos>> lastBedSpawnPositions = new HashMap<>();
 
     // Set by the no-argument constructor, which only the storage's factory calls. Decoded instances go through the
     // map constructor and leave this false, so it tells the two apart. See loadFromDisk.
@@ -53,7 +58,7 @@ public class BedFallbackSavedData extends SavedData {
         null
     );
 
-    public void addBedSpawnPosition(UUID playerUUID, BlockPos bedPos) {
+    public void addBedSpawnPosition(UUID playerUUID, GlobalPos bedPos) {
         Constants.LOG.debug("Adding bed spawn position {} for player {}", bedPos, playerUUID);
         var positions = lastBedSpawnPositions.computeIfAbsent(playerUUID, k -> new LinkedHashSet<>());
         var didAdd = positions.add(bedPos);
@@ -69,7 +74,7 @@ public class BedFallbackSavedData extends SavedData {
     }
 
     // Oldest first, so dropping from the front of the insertion order drops the least recently used bed.
-    private static void trimToMaximum(UUID playerUUID, LinkedHashSet<BlockPos> positions) {
+    private static void trimToMaximum(UUID playerUUID, LinkedHashSet<GlobalPos> positions) {
         var iterator = positions.iterator();
         while (positions.size() > ServerConfig.CONFIG.maximumBedFallbacks && iterator.hasNext()) {
             var oldestPos = iterator.next();
@@ -81,35 +86,38 @@ public class BedFallbackSavedData extends SavedData {
     // Walks newest to oldest and drops every position that no longer holds a bed on the way, so the newest bed that
     // still stands is the one returned. Only a player breaking a bed reaches removeBedSpawnPosition; a creeper, a
     // piston or lava takes one away without telling us, so the list is only known to match the world when it is read.
+    // A position in a dimension the server no longer has counts as gone too, which is what happens when the mod that
+    // added that dimension is removed.
     @Nullable
-    public BlockPos findLastStandingBedSpawnPosition(ServerLevel level, UUID playerUUID) {
-        LinkedHashSet<BlockPos> positions = lastBedSpawnPositions.get(playerUUID);
+    public GlobalPos findLastStandingBedSpawnPosition(MinecraftServer server, UUID playerUUID) {
+        LinkedHashSet<GlobalPos> positions = lastBedSpawnPositions.get(playerUUID);
         if (positions == null) {
             return null;
         }
 
         // A snapshot, because dropping a position below writes to the very set this walks.
-        List<BlockPos> oldestFirst = List.copyOf(positions);
+        List<GlobalPos> oldestFirst = List.copyOf(positions);
         for (int i = oldestFirst.size() - 1; i >= 0; i--) {
-            BlockPos pos = oldestFirst.get(i);
-            if (level.getBlockState(pos).is(BlockTags.BEDS)) {
-                return pos;
+            GlobalPos bedPos = oldestFirst.get(i);
+            ServerLevel level = server.getLevel(bedPos.dimension());
+            if (level != null && level.getBlockState(bedPos.pos()).is(BlockTags.BEDS)) {
+                return bedPos;
             }
 
-            Constants.LOG.debug("Dropping bed spawn position {} for player {}, no bed stands there any more", pos, playerUUID);
-            removeBedSpawnPosition(pos);
+            Constants.LOG.debug("Dropping bed spawn position {} for player {}, no bed stands there any more", bedPos, playerUUID);
+            removeBedSpawnPosition(bedPos);
         }
 
         Constants.LOG.debug("No recorded bed is still standing for player {}", playerUUID);
         return null;
     }
 
-    public boolean hasBedSpawnPosition(UUID playerUUID, BlockPos pos) {
-        LinkedHashSet<BlockPos> positions = lastBedSpawnPositions.get(playerUUID);
+    public boolean hasBedSpawnPosition(UUID playerUUID, GlobalPos pos) {
+        LinkedHashSet<GlobalPos> positions = lastBedSpawnPositions.get(playerUUID);
         return positions != null && positions.contains(pos);
     }
 
-    public void removeBedSpawnPosition(BlockPos bedPos) {
+    public void removeBedSpawnPosition(GlobalPos bedPos) {
         Constants.LOG.debug("Removing bed spawn position {}", bedPos);
         // Loop over all players and remove the bed position if it exists. A player left with no positions drops out
         // of the map, which has to go through the iterator: removing from the map itself here would fail the walk.
@@ -129,18 +137,23 @@ public class BedFallbackSavedData extends SavedData {
         return new BedFallbackSavedData(parsePositions(compoundTag));
     }
 
-    private static Map<UUID, LinkedHashSet<BlockPos>> parsePositions(CompoundTag compoundTag) {
-        var lastBedSpawnPositions = new HashMap<UUID, LinkedHashSet<BlockPos>>();
+    private static Map<UUID, LinkedHashSet<GlobalPos>> parsePositions(CompoundTag compoundTag) {
+        var lastBedSpawnPositions = new HashMap<UUID, LinkedHashSet<GlobalPos>>();
         var bedFallbackNBT = compoundTag.getCompoundOrEmpty("bed_fallbacks");
         for (String key : bedFallbackNBT.keySet()) {
             var playerUUID = UUID.fromString(key);
             var positionsList = bedFallbackNBT.getCompoundOrEmpty(key);
             var size = positionsList.getIntOr("size", 0);
-            var positionsSet = new LinkedHashSet<BlockPos>();
+            var positionsSet = new LinkedHashSet<GlobalPos>();
             for (int i = 0; i < size; i++) {
                 var posTag = positionsList.getCompoundOrEmpty("" + i);
                 var pos = new BlockPos(posTag.getIntOr("x", 0), posTag.getIntOr("y", 0), posTag.getIntOr("z", 0));
-                positionsSet.add(pos);
+                // Positions written before the mod tracked dimensions were all overworld ones, so that is what a
+                // missing key means. Anything unparsable is dropped rather than guessed at.
+                var dimension = parseDimension(posTag.getStringOr("dimension", ""));
+                if (dimension != null) {
+                    positionsSet.add(GlobalPos.of(dimension, pos));
+                }
             }
             lastBedSpawnPositions.put(playerUUID, positionsSet);
         }
@@ -151,7 +164,7 @@ public class BedFallbackSavedData extends SavedData {
         this.freshlyCreated = true;
     }
 
-    public BedFallbackSavedData(Map<UUID, LinkedHashSet<BlockPos>> lastBedSpawnPositions) {
+    public BedFallbackSavedData(Map<UUID, LinkedHashSet<GlobalPos>> lastBedSpawnPositions) {
         this.lastBedSpawnPositions = lastBedSpawnPositions;
     }
 
@@ -165,9 +178,10 @@ public class BedFallbackSavedData extends SavedData {
             int index = 0;
             for (var pos : positions) {
                 var posTag = new CompoundTag();
-                posTag.putInt("x", pos.getX());
-                posTag.putInt("y", pos.getY());
-                posTag.putInt("z", pos.getZ());
+                posTag.putInt("x", pos.pos().getX());
+                posTag.putInt("y", pos.pos().getY());
+                posTag.putInt("z", pos.pos().getZ());
+                posTag.putString("dimension", pos.dimension().identifier().toString());
                 positionsList.put("" + index, posTag); // Use index as key to preserve order
                 index++;
             }
@@ -178,11 +192,29 @@ public class BedFallbackSavedData extends SavedData {
         return compoundTag;
     }
 
-    public static BedFallbackSavedData getData(ServerLevel level) {
-        var data = level.getDataStorage().computeIfAbsent(BedFallbackSavedData.ID);
+    @Nullable
+    private static ResourceKey<Level> parseDimension(String identifier) {
+        if (identifier.isEmpty()) {
+            return Level.OVERWORLD;
+        }
+
+        var parsed = Identifier.tryParse(identifier);
+        if (parsed == null) {
+            Constants.LOG.warn("Dropping bed spawn position in unreadable dimension '{}'", identifier);
+            return null;
+        }
+
+        return ResourceKey.create(Registries.DIMENSION, parsed);
+    }
+
+    // One list per player for the whole server, not one per dimension, so a bed in any dimension can be the fallback
+    // for a death in any other. The file does not move by switching storages: the overworld's per-dimension data
+    // folder and the server's are both <world>/data.
+    public static BedFallbackSavedData getData(MinecraftServer server) {
+        var data = server.getDataStorage().computeIfAbsent(BedFallbackSavedData.ID);
         if (data.freshlyCreated) {
             data.freshlyCreated = false;
-            data.loadFromDisk(level);
+            data.loadFromDisk(server);
         }
         return data;
     }
@@ -194,8 +226,8 @@ public class BedFallbackSavedData extends SavedData {
     //
     // Reading it here also carries pre-26.2 data forward. Before 26.2 the saved data id was a bare name, which put
     // the file straight in the level's data folder instead of under the mod id.
-    private void loadFromDisk(ServerLevel level) {
-        Path dataFolder = level.getServer().getWorldPath(LevelResource.DATA);
+    private void loadFromDisk(MinecraftServer server) {
+        Path dataFolder = server.getWorldPath(LevelResource.DATA);
         Path currentFile = dataFolder.resolve(Constants.MOD_ID).resolve(DATA_FILE_NAME);
         Path legacyFile = dataFolder.resolve(DATA_FILE_NAME);
 
@@ -205,7 +237,7 @@ public class BedFallbackSavedData extends SavedData {
             return;
         }
 
-        Map<UUID, LinkedHashSet<BlockPos>> storedPositions;
+        Map<UUID, LinkedHashSet<GlobalPos>> storedPositions;
         try {
             // Saved data files wrap the payload the codec sees in a "data" compound.
             var tag = NbtIo.readCompressed(file, NbtAccounter.unlimitedHeap());

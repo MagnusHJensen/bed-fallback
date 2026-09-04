@@ -13,6 +13,7 @@ package dk.magnusjensen.bedfallback.mixin;
 
 import com.mojang.authlib.GameProfile;
 import dk.magnusjensen.bedfallback.data.BedFallbackSavedData;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -51,16 +52,17 @@ public abstract class ServerPlayerMixin extends Player {
     public void getRespawnPosition(CallbackInfoReturnable<ServerPlayer.RespawnConfig> ci) {
         ServerPlayer.RespawnConfig currentConfig = this.respawnConfig;
         if (currentConfig != null) {
-            var state = this.level().getBlockState(currentConfig.respawnData().globalPos().pos());
-            if (state.is(Blocks.RESPAWN_ANCHOR)) {
+            // The block has to be read in the dimension the respawn points at, not in the one the player died in.
+            // Respawn anchors only work in the Nether, so reading the current level would miss every one of them.
+            GlobalPos respawnPos = currentConfig.respawnData().globalPos();
+            ServerLevel respawnLevel = this.server.getLevel(respawnPos.dimension());
+            if (respawnLevel != null && respawnLevel.getBlockState(respawnPos.pos()).is(Blocks.RESPAWN_ANCHOR)) {
                 return; // Respawn anchor is valid, do nothing
             }
         }
 
-        var data = BedFallbackSavedData.getData(this.level());
-        // Recorded positions are overworld ones, so they have to be checked against the overworld. Checking them
-        // against whatever level the player died in would find no bed and throw away every position they have.
-        var lastBedPos = data.findLastStandingBedSpawnPosition(this.server.overworld(), this.getUUID());
+        var data = BedFallbackSavedData.getData(this.server);
+        var lastBedPos = data.findLastStandingBedSpawnPosition(this.server, this.getUUID());
         if (lastBedPos == null) {
             return;
         }
@@ -68,7 +70,7 @@ public abstract class ServerPlayerMixin extends Player {
         // A player whose respawn was cleared after a failed respawn has no config left to take the angles from.
         LevelData.RespawnData currentRespawn = currentConfig != null ? currentConfig.respawnData() : LevelData.RespawnData.DEFAULT;
         this.respawnConfig = new ServerPlayer.RespawnConfig(
-            LevelData.RespawnData.of(this.server.overworld().dimension(), lastBedPos, currentRespawn.yaw(), currentRespawn.pitch()),
+            LevelData.RespawnData.of(lastBedPos.dimension(), lastBedPos.pos(), currentRespawn.yaw(), currentRespawn.pitch()),
             currentConfig != null && currentConfig.forced()
         );
     }
