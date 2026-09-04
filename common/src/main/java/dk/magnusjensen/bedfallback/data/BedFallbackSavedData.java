@@ -15,22 +15,34 @@ import dk.magnusjensen.bedfallback.Constants;
 import dk.magnusjensen.bedfallback.config.ServerConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtAccounter;
+import net.minecraft.nbt.NbtIo;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
+import net.minecraft.world.level.storage.LevelResource;
 import org.jetbrains.annotations.Nullable;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 
 public class BedFallbackSavedData extends SavedData {
     public static final String DATA_NAME = "bed_fallbacks_data";
 
+    private static final String DATA_FILE_NAME = DATA_NAME + ".dat";
+
     // Map of player UUID to linked hash set of block positions of bed spawns
     // We use a hash set to get O(1) lookups and linked to preserve insertion order
     private Map<UUID, LinkedHashSet<BlockPos>> lastBedSpawnPositions = new HashMap<>();
 
+    // Set by the no-argument constructor, which only the storage's factory calls. Decoded instances go through the
+    // map constructor and leave this false, so it tells the two apart. See loadFromDisk.
+    private transient boolean freshlyCreated;
+
     public static final SavedDataType<BedFallbackSavedData> ID = new SavedDataType<>(
-        DATA_NAME,
+        Identifier.fromNamespaceAndPath(Constants.MOD_ID, DATA_NAME),
 
         BedFallbackSavedData::new,
         CompoundTag.CODEC.xmap(
@@ -50,16 +62,19 @@ public class BedFallbackSavedData extends SavedData {
             positions.add(bedPos);
         }
 
-        // Enforce maximum number of bed fallbacks
-        while (positions.size() > ServerConfig.CONFIG.maximumBedFallbacks) {
-           if (positions.iterator().hasNext()) {
-               var firstPos = positions.iterator().next();
-               Constants.LOG.debug("Removing oldest bed spawn position {} for player {} to enforce maximum of {}", firstPos, playerUUID, ServerConfig.CONFIG.maximumBedFallbacks);
-               positions.remove(firstPos);
-           }
-        }
+        trimToMaximum(playerUUID, positions);
 
         setDirty();
+    }
+
+    // Oldest first, so dropping from the front of the insertion order drops the least recently used bed.
+    private static void trimToMaximum(UUID playerUUID, LinkedHashSet<BlockPos> positions) {
+        var iterator = positions.iterator();
+        while (positions.size() > ServerConfig.CONFIG.maximumBedFallbacks && iterator.hasNext()) {
+            var oldestPos = iterator.next();
+            Constants.LOG.debug("Removing oldest bed spawn position {} for player {} to enforce maximum of {}", oldestPos, playerUUID, ServerConfig.CONFIG.maximumBedFallbacks);
+            iterator.remove();
+        }
     }
 
     @Nullable
@@ -98,6 +113,10 @@ public class BedFallbackSavedData extends SavedData {
     }
 
     public static BedFallbackSavedData load(CompoundTag compoundTag) {
+        return new BedFallbackSavedData(parsePositions(compoundTag));
+    }
+
+    private static Map<UUID, LinkedHashSet<BlockPos>> parsePositions(CompoundTag compoundTag) {
         var lastBedSpawnPositions = new HashMap<UUID, LinkedHashSet<BlockPos>>();
         var bedFallbackNBT = compoundTag.getCompoundOrEmpty("bed_fallbacks");
         for (String key : bedFallbackNBT.keySet()) {
@@ -112,10 +131,11 @@ public class BedFallbackSavedData extends SavedData {
             }
             lastBedSpawnPositions.put(playerUUID, positionsSet);
         }
-        return new BedFallbackSavedData(lastBedSpawnPositions);
+        return lastBedSpawnPositions;
     }
 
     public BedFallbackSavedData() {
+        this.freshlyCreated = true;
     }
 
     public BedFallbackSavedData(Map<UUID, LinkedHashSet<BlockPos>> lastBedSpawnPositions) {
@@ -146,6 +166,47 @@ public class BedFallbackSavedData extends SavedData {
     }
 
     public static BedFallbackSavedData getData(ServerLevel level) {
-        return level.getDataStorage().computeIfAbsent(BedFallbackSavedData.ID);
+        var data = level.getDataStorage().computeIfAbsent(BedFallbackSavedData.ID);
+        if (data.freshlyCreated) {
+            data.freshlyCreated = false;
+            data.loadFromDisk(level);
+        }
+        return data;
+    }
+
+    // The storage hands back a brand new instance both for a world that has never seen this mod and for one whose
+    // file it could not read, so reading the file is left to us in either case. It cannot read ours: a mod has no
+    // data fixers to name, and vanilla dereferences the DataFixTypes of a SavedDataType without a null check.
+    // NeoForge patches that check in, Fabric runs vanilla as it is.
+    //
+    // Reading it here also carries pre-26.2 data forward. Before 26.2 the saved data id was a bare name, which put
+    // the file straight in the level's data folder instead of under the mod id.
+    private void loadFromDisk(ServerLevel level) {
+        Path dataFolder = level.getServer().getWorldPath(LevelResource.DATA);
+        Path currentFile = dataFolder.resolve(Constants.MOD_ID).resolve(DATA_FILE_NAME);
+        Path legacyFile = dataFolder.resolve(DATA_FILE_NAME);
+
+        Path file = Files.exists(currentFile) ? currentFile : legacyFile;
+        if (!Files.exists(file)) {
+            Constants.LOG.info("No stored bed fallbacks at {} or {}, starting with none", currentFile, legacyFile);
+            return;
+        }
+
+        Map<UUID, LinkedHashSet<BlockPos>> storedPositions;
+        try {
+            // Saved data files wrap the payload the codec sees in a "data" compound.
+            var tag = NbtIo.readCompressed(file, NbtAccounter.unlimitedHeap());
+            storedPositions = parsePositions(tag.getCompoundOrEmpty("data"));
+        } catch (Exception e) {
+            // A broken file costs the players their fallbacks, but must not stop the world from loading.
+            Constants.LOG.error("Could not read bed fallbacks from {}, starting with none", file, e);
+            return;
+        }
+
+        // The file may have been written under a higher maximum than the one configured now.
+        storedPositions.forEach(BedFallbackSavedData::trimToMaximum);
+        this.lastBedSpawnPositions = storedPositions;
+        setDirty();
+        Constants.LOG.info("Loaded bed fallbacks for {} players from {}", storedPositions.size(), file);
     }
 }
