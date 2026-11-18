@@ -21,7 +21,7 @@ dependencies {
     implementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
     implementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
 
-    implementation "fuzs.forgeconfigapiport:forgeconfigapiport-fabric:26.2.1"
+    implementation "fuzs.forgeconfigapiport:forgeconfigapiport-fabric:26.3.1"
 }
 
 loom {

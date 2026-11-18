@@ -35,7 +35,7 @@ public class NeoForgeBedFallback {
         CommonClass.init();
 
 
-        modContainer.registerConfig(ModConfig.Type.SERVER, ServerConfig.CONFIG_SPEC);
+        modContainer.registerConfig(ModConfig.Type.SYNCED, ServerConfig.CONFIG_SPEC);
     }
 
     @SubscribeEvent

@@ -28,7 +28,7 @@ dependencies {
     // fabric and neoforge both bundle mixinextras, so it is safe to use it in common
     compileOnly(annotationProcessor('io.github.llamalad7:mixinextras-common:0.5.5'))
 
-    api "fuzs.forgeconfigapiport:forgeconfigapiport-common-neoforgeapi:26.2.1"
+    api "fuzs.forgeconfigapiport:forgeconfigapiport-common-neoforgeapi:26.3.1"
 }
 
 configurations {
