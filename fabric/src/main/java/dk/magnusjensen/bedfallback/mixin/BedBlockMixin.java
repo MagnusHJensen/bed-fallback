@@ -33,7 +33,7 @@ public class BedBlockMixin {
             return;
         }
 
-        CommonClass.handleBlockBroken(serverPlayer, pos, level.getBlockEntity(pos));
+        CommonClass.handleBlockBroken(serverPlayer, pos);
     }
 
 }

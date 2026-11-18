@@ -13,6 +13,7 @@ package dk.magnusjensen.bedfallback;
 
 import dk.magnusjensen.bedfallback.config.ServerConfig;
 import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
@@ -21,7 +22,7 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerSetSpawnEvent;
-import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
 
 
 @Mod(Constants.MOD_ID)
@@ -67,15 +68,19 @@ public class NeoForgeBedFallback {
         CommonClass.handlePlayerSetSpawn(serverPlayer, event.getNewSpawn());
     }
 
-    @SubscribeEvent
-    public static void onPlayerBreakBlock(BlockEvent.BreakEvent event) {
+    // Runs last so a break that another handler cancels does not take the recorded bed with it: unlike the
+    // BlockEvent.BreakEvent it replaces, BreakBlockEvent fires on the attempt to break rather than on the break.
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onPlayerBreakBlock(BreakBlockEvent event) {
+        if (event.isCanceled()) {
+            return;
+        }
         if (event.getPlayer().level().isClientSide()) {
             return;
         }
         if (!(event.getPlayer() instanceof ServerPlayer serverPlayer)) {
             return;
         }
-        var blockEntity = event.getLevel().getBlockEntity(event.getPos());
-        CommonClass.handleBlockBroken(serverPlayer, event.getPos(), blockEntity);
+        CommonClass.handleBlockBroken(serverPlayer, event.getPos());
     }
 }
